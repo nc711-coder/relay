@@ -1,0 +1,10 @@
+.env
+deploy.env.yaml
+.venv
+web
+evals
+tests
+automation
+.git
+__pycache__
+.pytest_cache
