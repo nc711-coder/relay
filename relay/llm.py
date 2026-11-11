@@ -30,7 +30,8 @@ BASE_URL = "https://api.groq.com/openai/v1"
 # gpt-oss writes typographic spaces and hyphens ("9:00 AM", "out‑of‑network"): plain ones compare
 # cleanly with the document text.
 _ODD = str.maketrans({" ": " ", " ": " ", " ": " ", " ": " ", " ": " ",
-                      "‐": "-", "‑": "-", "‒": "-", "–": "-", "−": "-"})
+                      "‐": "-", "‑": "-", "‒": "-", "–": "-", "−": "-",
+                      "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'})
 
 
 class LLMError(RuntimeError):

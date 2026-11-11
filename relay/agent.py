@@ -22,7 +22,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
-from .checks import check_draft, screen
+from .checks import sign_off, check_draft, screen
 from .fernwood import TODAY
 from .llm import LLMError
 from .support_data import CATEGORIES, REFUND_LIMIT
@@ -63,7 +63,8 @@ DRAFT = ROLE + f"""
 Write the reply and a ticket, using ONLY facts from the lookups and policies below. Reply with a JSON object:
   "reply":  the email reply. Greet the customer by first name if known. Answer their question in the first two
             sentences. Always name the order you're talking about by its number. Give order numbers as #12345, dates as "October 28", money as $14.85. Include the
-            tracking number and carrier when you mention shipping. Offer only what the policy allows. If the
+            tracking number and carrier when you mention shipping. Offer only what the policy allows. You can't
+            change anything yourself: write what we will do ("we'll switch you to..."), never that it's done. If the
             customer isn't found or no matching order exists, say so and ask for the order number or the email
             address they ordered with. Sign off as "Fernwood Coffee Support". Under 160 words.
   "offers": every refund, credit, replacement, return or account change the reply offers, each as
@@ -192,6 +193,8 @@ class Agent:
         except LLMError as e:
             draft = {"reply": "", "ticket": {}, "refund_amount": 0, "needs_human": True,
                      "human_reason": f"the AI couldn't write a draft ({e})"}
+        if draft.get("reply"):
+            draft["reply"] = sign_off(draft["reply"])
         return {"draft": draft}
 
     def check(self, s: State) -> dict:

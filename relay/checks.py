@@ -64,6 +64,13 @@ OPENED = re.compile(r"\b(opened|tried it|tasted it|brewed|drank|half (the|a) bag
 UNOPENED = re.compile(r"\b(unopened|not opened|never opened|still sealed|sealed)\b", re.I)
 SUB_DONE = re.compile(r"\b(has been|have been|is now|we've|we have|i've|i have)\s+(cancel+ed|paused|skipped|changed|"
                       r"switched|updated)", re.I)
+DONE = re.compile(r"\b(i've|i have|we've|we have)\s+(already\s+)?(updated|changed|switched|moved|cancel+ed|paused|"
+                  r"skipped|processed|issued|refunded|credited|scheduled|set up)\b|"
+                  r"\b(has|have) been (updated|changed|switched|moved|cancel+ed|paused|skipped|processed|issued|"
+                  r"refunded|credited)\b", re.I)
+SIGN_OFF = "Fernwood Coffee Support"
+_CLOSING = re.compile(r"\s*(?:(?:(?:best|kind|warm)\s+)?regards|best|thanks|thank you|sincerely|cheers|warmly)?"
+                      r"[,!]?\s*[\w'-]+\s+coffee\s+support\.?\s*$", re.I)
 WORD_COUNTS = {"a": 1, "one": 1, "two": 2, "both": 2, "three": 3, "four": 4, "five": 5, "six": 6, "all": 99}
 
 
@@ -74,6 +81,14 @@ def quote_in_policy(quote: str) -> bool:
     if any(q.startswith(_norm(s)) or _norm(s) in q[:60] for s in NOT_PERMISSION):
         return False
     return len(q) >= 15 and q in _norm(POLICIES)
+
+
+def sign_off(reply: str) -> str:
+    """The reply with exactly one sign-off, on its own line and spelled right (the AI sometimes glues it to the
+    last sentence or misspells the company)."""
+    body = reply.replace("\u2019", "'").rstrip()
+    body = _CLOSING.sub("", body).rstrip()
+    return f"{body}\n\n{SIGN_OFF}" if body else ""
 
 
 def _orders(steps: list[dict]) -> list[dict]:
@@ -183,7 +198,10 @@ def check_draft(draft: dict, steps: list[dict], email: dict) -> tuple[list[str],
         if damage_offer and str(o["order_id"]) in body and days is not None and days > 30:
             problems.append(f"order #{o['order_id']} was delivered {days} days ago, and damage must be reported within "
                             f"30 days of delivery; don't offer a replacement or refund, explain the 30-day window")
-    if SUB_DONE.search(reply):
+    if DONE.search(reply.replace("\u2019", "'")):
+        problems.append("the reply says a change was already made, but nothing changes until a person approves this "
+                        "reply and support does it; say what we will do (\"we'll switch you to...\"), not that it's done")
+    if SUB_DONE.search(reply.replace("\u2019", "'")):
         subs = [st.get("result") or {} for st in steps if st.get("tool") == "subscription"]
         if not any(s_.get("active") for r in subs for s_ in r.get("subscriptions") or []):
             problems.append("the reply says a subscription was changed, but the customer has no active subscription "

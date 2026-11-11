@@ -128,3 +128,17 @@ def test_product_search_ignores_filler_words(conn, inbox):
     from relay.tools import Tools
     t = Tools(conn, "nobody@example.net")
     assert [p["name"] for p in t.product_info("the Burr Grinder price")["products"]] == ["Burr Grinder"]
+
+
+def test_no_claimed_changes_and_one_sign_off():
+    from relay.checks import check_draft, sign_off
+    problems, _ = check_draft({"reply": "I’ve updated your account to every two weeks.", "refund_amount": 0}, [],
+                              {"from_addr": "a@x", "subject": "", "body": "Can we switch to every two weeks?"})
+    assert any("already made" in p for p in problems)
+    problems, _ = check_draft({"reply": "We'll switch you to every two weeks from your next delivery.", "refund_amount": 0},
+                              [], {"from_addr": "a@x", "subject": "", "body": "Can we switch to every two weeks?"})
+    assert problems == []
+    assert sign_off("Hi,\n\nDone soon. Fernland Coffee Support") == "Hi,\n\nDone soon.\n\nFernwood Coffee Support"
+    assert sign_off("Hi,\n\nThanks for your patience.\n\nBest regards,\nFernwood Coffee Support").endswith(
+        "Thanks for your patience.\n\nFernwood Coffee Support")
+    assert sign_off("Hi Ava,\n\nYour order shipped.") == "Hi Ava,\n\nYour order shipped.\n\nFernwood Coffee Support"
