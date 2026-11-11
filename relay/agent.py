@@ -22,7 +22,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
-from .checks import sign_off, check_draft, screen
+from .checks import sign_off, tidy, check_draft, screen
 from .fernwood import TODAY
 from .llm import LLMError
 from .support_data import CATEGORIES, REFUND_LIMIT
@@ -194,7 +194,11 @@ class Agent:
             draft = {"reply": "", "ticket": {}, "refund_amount": 0, "needs_human": True,
                      "human_reason": f"the AI couldn't write a draft ({e})"}
         if draft.get("reply"):
-            draft["reply"] = sign_off(draft["reply"])
+            draft["reply"] = sign_off(tidy(draft["reply"]))
+        ticket = draft.get("ticket") or {}
+        for k in ("title", "action"):
+            if isinstance(ticket.get(k), str):
+                ticket[k] = tidy(ticket[k])
         return {"draft": draft}
 
     def check(self, s: State) -> dict:

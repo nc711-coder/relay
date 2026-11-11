@@ -83,6 +83,12 @@ def quote_in_policy(quote: str) -> bool:
     return len(q) >= 15 and q in _norm(POLICIES)
 
 
+def tidy(text: str) -> str:
+    """Money with two decimals ($75.5 -> $75.50, $16.0 -> $16.00) and a blank line after the greeting."""
+    text = re.sub(r"\$(\d[\d,]*)\.(\d)(?!\d)", r"$\1.\g<2>0", text)
+    return re.sub(r"\A((?:hi|hello|dear)\b[^\n]{0,60},)[ \t]*\n(?!\n)", r"\1\n\n", text, flags=re.I)
+
+
 def sign_off(reply: str) -> str:
     """The reply with exactly one sign-off, on its own line and spelled right (the AI sometimes glues it to the
     last sentence or misspells the company)."""

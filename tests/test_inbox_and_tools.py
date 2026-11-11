@@ -142,3 +142,10 @@ def test_no_claimed_changes_and_one_sign_off():
     assert sign_off("Hi,\n\nThanks for your patience.\n\nBest regards,\nFernwood Coffee Support").endswith(
         "Thanks for your patience.\n\nFernwood Coffee Support")
     assert sign_off("Hi Ava,\n\nYour order shipped.") == "Hi Ava,\n\nYour order shipped.\n\nFernwood Coffee Support"
+
+
+def test_tidy_money_and_greeting():
+    from relay.checks import tidy
+    assert tidy("A refund of $75.5 and $1,234.5, not $15.50 or $129.") == "A refund of $75.50 and $1,234.50, not $15.50 or $129."
+    assert tidy("Hi Lantern Coffee House,\nWe can switch.") == "Hi Lantern Coffee House,\n\nWe can switch."
+    assert tidy("Hi Ava,\n\nAlready spaced.") == "Hi Ava,\n\nAlready spaced."
