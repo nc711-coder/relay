@@ -323,6 +323,13 @@ class Agent:
         out["seconds"] = round(time.perf_counter() - t, 2)
         return out
 
+    def forget(self, email_id: int) -> None:
+        """Remove the saved graph for an email (when a visitor deletes their test email)."""
+        try:
+            self.graph.checkpointer.delete_thread(f"email-{email_id}")
+        except Exception:                        # nothing saved yet, or the store can't delete: harmless
+            log.warning("couldn't delete the saved graph for email %s", email_id)
+
     def decide(self, email_id: int, decision: str, reply: str | None = None) -> dict[str, Any]:
         if decision not in ("approved", "edited", "rejected"):
             raise ValueError(decision)

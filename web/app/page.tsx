@@ -18,16 +18,22 @@ export default function Home() {
   const [filter, setFilter] = useState<Filter>("all");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [searched, setSearched] = useState("");
 
   const refresh = useCallback(async () => {
     try {
-      setEmails(await api.emails());
+      setEmails(await api.emails(searched));
       setError("");
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+  }, [searched]);
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {                                   // search a moment after typing stops
+    const t = setTimeout(() => setSearched(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
   useEffect(() => { if (view === "board") api.board().then(setBoard).catch((e) => setError(e.message)); }, [view, emails]);
 
   async function show(id: number) {
@@ -41,6 +47,11 @@ export default function Home() {
 
   function updated(e: Email) {
     setOpen(e);
+    refresh();
+  }
+
+  function deleted() {
+    setOpen(null);
     refresh();
   }
 
@@ -70,11 +81,18 @@ export default function Home() {
       ) : (
         <div className={`split ${open ? "has-open" : ""}`}>
           <aside className="list">
+            <div className="list-head">
+            <div className="search">
+              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search name, company, order or text" aria-label="Search emails" />
+              {query && <button onClick={() => setQuery("")} aria-label="Clear search">✕</button>}
+            </div>
             <div className="filters">
               {([["all", `All ${emails.length}`], ["waiting_approval", `To approve ${count("waiting_approval")}`],
                  ["needs_human", `Needs a person ${count("needs_human")}`], ["sent", `Sent ${count("sent")}`]] as [Filter, string][]).map(([k, label]) => (
                 <button key={k} className={filter === k ? "on" : ""} onClick={() => setFilter(k)}>{label}</button>
               ))}
+            </div>
             </div>
             {shown.map((e) => {
               const s = STATUS[e.status] || { label: e.status, tone: "grey" };
@@ -91,10 +109,10 @@ export default function Home() {
                 </button>
               );
             })}
-            {!shown.length && <p className="empty">No emails here.</p>}
+            {!shown.length && <p className="empty">{searched ? <>No emails match &ldquo;{searched}&rdquo;.</> : "No emails here."}</p>}
           </aside>
           <section className="pane">
-            {open ? <EmailDetail email={open} onChange={updated} onBack={() => setOpen(null)} />
+            {open ? <EmailDetail email={open} onChange={updated} onBack={() => setOpen(null)} onDeleted={deleted} />
               : <div className="placeholder"><p>Pick an email to see the agent&apos;s draft and every lookup it made.</p>
                   <button className="primary" onClick={() => setSending(true)}>Or send your own test email</button></div>}
           </section>

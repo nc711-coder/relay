@@ -50,7 +50,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  emails: () => call<{ emails: EmailSummary[] }>("/api/emails").then((d) => d.emails),
+  emails: (q = "") => call<{ emails: EmailSummary[] }>(`/api/emails${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ""}`).then((d) => d.emails),
+  remove: (id: number) => call<{ deleted: number }>(`/api/emails/${id}`, { method: "DELETE" }),
   email: (id: number) => call<Email>(`/api/emails/${id}`),
   personas: () => call<{ personas: Persona[] }>("/api/personas").then((d) => d.personas),
   send: (body: { persona: string; from_name?: string; subject: string; body: string }) =>

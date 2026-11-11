@@ -4,13 +4,25 @@ import { useEffect, useState } from "react";
 import { api, ApiError, type Email } from "@/lib/api";
 import { CATEGORY, STATUS, summarize, TOOL_LABEL, when } from "@/lib/labels";
 
-export default function EmailDetail({ email, onChange, onBack }: {
-  email: Email; onChange: (e: Email) => void; onBack: () => void;
+export default function EmailDetail({ email, onChange, onBack, onDeleted }: {
+  email: Email; onChange: (e: Email) => void; onBack: () => void; onDeleted: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   const [text, setText] = useState(email.reply || "");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  useEffect(() => { setText(email.reply || ""); setError(""); }, [email.id, email.reply]);
+  useEffect(() => { setText(email.reply || ""); setError(""); setConfirming(false); }, [email.id, email.reply]);
+
+  async function remove() {
+    setBusy("delete"); setError("");
+    try {
+      await api.remove(email.id);
+      onDeleted();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Something went wrong.");
+      setBusy("");
+    }
+  }
 
   const waiting = email.status === "waiting_approval" || email.status === "needs_human";
   const editable = waiting && email.mine;
@@ -33,7 +45,17 @@ export default function EmailDetail({ email, onChange, onBack }: {
       <button className="back" onClick={onBack}>← Inbox</button>
 
       <header className="detail-head">
-        <h2>{email.subject}</h2>
+        <div className="title-row">
+          <h2>{email.subject}</h2>
+          {email.mine && (confirming ? (
+            <span className="confirm">Delete this test email?
+              <button className="danger" disabled={busy === "delete"} onClick={remove}>{busy === "delete" ? "Deleting…" : "Delete"}</button>
+              <button className="link" onClick={() => setConfirming(false)}>Cancel</button>
+            </span>
+          ) : (
+            <button className="link danger-text" onClick={() => setConfirming(true)}>Delete</button>
+          ))}
+        </div>
         <p className="from"><strong>{email.from_name || email.from_addr}</strong> &lt;{email.from_addr}&gt; · {when(email.received_at)}</p>
         <div className="tags">
           <span className={`pill ${status.tone}`}>{status.label}</span>

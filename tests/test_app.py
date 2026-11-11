@@ -83,3 +83,21 @@ def test_inbound_gmail_message(client, conn, monkeypatch):
     again = client.post("/api/inbound", json=msg, headers={"X-Webhook-Secret": "s3cret"}).json()
     assert again["email_id"] == r["email_id"]                       # a retry doesn't draft twice
     assert all(e["source"] != "gmail" for e in client.get("/api/emails", headers=ME).json()["emails"])
+
+
+def test_search_and_delete_own_test_emails(client, conn):
+    hits = client.get("/api/emails", params={"q": "wholesale pricing"}).json()["emails"]
+    assert hits and all("wholesale" in (h["subject"] + h["snippet"] + (h["category"] or "")).lower() for h in hits)
+    assert client.get("/api/emails", params={"q": "zzz-nothing-matches"}).json()["emails"] == []
+    assert client.get("/api/emails", params={"q": "100%_"}).status_code == 200      # wildcards are taken literally
+    persona = client.get("/api/personas").json()["personas"][0]
+    e = client.post("/api/emails", json={"persona": persona["id"], "subject": "Roast?", "body": "Is Kenya AA light?"},
+                    headers=ME).json()
+    assert [x["id"] for x in client.get("/api/emails", params={"q": "roast? kenya"}, headers=ME).json()["emails"]][0] == e["id"]
+    assert e["id"] not in [x["id"] for x in client.get("/api/emails", params={"q": "roast? kenya"}, headers=YOU).json()["emails"]]
+    assert client.delete(f"/api/emails/{e['id']}", headers=YOU).status_code == 404       # not yours
+    demo_id = conn.execute("select id from support.emails where source = 'demo' limit 1").fetchone()[0]
+    assert client.delete(f"/api/emails/{demo_id}", headers=ME).status_code == 403        # demo emails stay
+    assert client.delete(f"/api/emails/{e['id']}", headers=ME).json() == {"deleted": e["id"]}
+    assert client.get(f"/api/emails/{e['id']}", headers=ME).status_code == 404
+    assert conn.execute("select count(*) from support.drafts where email_id = %s", (e["id"],)).fetchone()[0] == 0

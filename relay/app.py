@@ -2,11 +2,13 @@
 
     uvicorn relay.app:app --reload           then http://127.0.0.1:8000/docs
 
-    GET  /api/emails                 the inbox: the demo emails plus the ones this visitor sent
+    GET  /api/emails?q=...           the inbox: the demo emails plus the ones this visitor sent; q searches the
+                                     sender, address, subject and text
     GET  /api/emails/{id}            one email with the agent's draft, ticket, reasons and every lookup it made
     POST /api/emails                 send a test email: {"persona" or "from_addr", "from_name", "subject", "body"}
                                      -> the agent runs at once and the result comes back (5 to 15 seconds)
     POST /api/emails/{id}/decision   {"decision": "approved" | "edited" | "rejected", "reply": "..."}
+    DELETE /api/emails/{id}          delete one of this visitor's own test emails (demo emails can't be deleted)
     GET  /api/personas               sample customers to send as, each with something to ask about
     GET  /api/board                  the ticket board
     POST /api/inbound                a new Gmail message from n8n (X-Webhook-Secret = INBOUND_SECRET); the agent
@@ -43,7 +45,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 
 origins = [o.strip().rstrip("/") for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
 app = FastAPI(title="Relay", version="1.0")
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
 
 _agent = None
 _lock = threading.Lock()
@@ -134,8 +136,9 @@ class Decision(BaseModel):
 LIST_SQL = """select e.id, e.code, e.received_at, e.from_name, e.from_addr, e.subject, left(e.body, 140), e.source,
                      e.status, e.category, e.urgency, d.needs_human
               from support.emails e left join support.drafts d on d.email_id = e.id
-              where e.source = 'demo' or (e.source = 'form' and e.visitor = %s)
+              where (e.source = 'demo' or (e.source = 'form' and e.visitor = %(v)s)) {match}
               order by e.received_at desc limit 200"""
+SEARCHED = "concat_ws(' ', e.from_name, e.from_addr, e.subject, e.body, e.category, d.reply)"
 
 
 @app.get("/health")
@@ -149,10 +152,16 @@ def get_personas():
 
 
 @app.get("/api/emails")
-def list_emails(x_visitor: str | None = Header(default=None)):
+def list_emails(q: str = "", x_visitor: str | None = Header(default=None)):
     v = visitor_id(x_visitor) or "-"
+    words = q[:100].split()[:6]             # every word must appear somewhere: "lantern two weeks"
+    params = {"v": v}
+    match = ""
+    for i, w in enumerate(words):
+        params[f"w{i}"] = "%" + w.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        match += f" and {SEARCHED} ilike %(w{i})s"
     with db.connect() as conn:
-        rows = conn.execute(LIST_SQL, (v,)).fetchall()
+        rows = conn.execute(LIST_SQL.format(match=match), params).fetchall()
     keys = ["id", "code", "received_at", "from_name", "from_addr", "subject", "snippet", "source", "status",
             "category", "urgency", "needs_human"]
     return {"emails": [dict(zip(keys, r)) for r in rows]}
@@ -237,6 +246,20 @@ def decide(email_id: int, body: Decision, x_visitor: str | None = Header(default
         return JSONResponse({"detail": str(ex)}, status_code=400)
     with db.connect() as conn:
         return load(conn, email_id, v)
+
+
+@app.delete("/api/emails/{email_id}")
+def delete_email(email_id: int, x_visitor: str | None = Header(default=None)):
+    v = visitor_id(x_visitor)
+    with db.connect() as conn:
+        e = load(conn, email_id, v)                  # 404 unless it's a demo email or this visitor's own
+        if not e["mine"]:
+            return JSONResponse({"detail": "The demo emails can't be deleted. You can delete your own test emails."},
+                                status_code=403)
+        conn.execute("delete from support.emails where id = %s and source = 'form' and visitor = %s", (email_id, v))
+    if _agent is not None:
+        _agent.forget(email_id)
+    return {"deleted": email_id}
 
 
 @app.get("/api/board")
