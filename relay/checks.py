@@ -94,6 +94,23 @@ def tidy(text: str) -> str:
     return f"{m.group(1)}\n\n{rest[:1].upper()}{rest[1:]}"
 
 
+def greeting_name(email: dict, steps: list[dict]) -> str:
+    """Who the reply greets: a retail customer's first name, a café or office by its full name."""
+    who = next((st.get("result") or {} for st in steps if st.get("tool") == "find_customer"), {})
+    if who.get("found"):
+        name = str(who.get("name") or "")
+        return name if who.get("type") == "wholesale" else name.split()[0] if name else ""
+    name = re.sub(r"\s*\(.*\)", "", str(email.get("from_name") or "")).strip()
+    return name.split()[0] if name and "visitor" not in name.lower() else ""
+
+
+def greet(reply: str, name: str) -> str:
+    """Add "Hi <name>," when the AI forgot the greeting."""
+    if re.match(r"\s*(hi|hello|dear|good (morning|afternoon|evening))\b", reply, re.I):
+        return reply
+    return f"Hi {name},\n\n{reply.lstrip()}" if name else f"Hi,\n\n{reply.lstrip()}"
+
+
 def sign_off(reply: str) -> str:
     """The reply with exactly one sign-off, on its own line and spelled right (the AI sometimes glues it to the
     last sentence or misspells the company)."""

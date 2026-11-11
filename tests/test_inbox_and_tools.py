@@ -152,3 +152,13 @@ def test_tidy_money_and_greeting():
     assert tidy("Hi Ava, your order #27989 is in transit.") == "Hi Ava,\n\nYour order #27989 is in transit."
     assert tidy("Hi, I can help.") == "Hi,\n\nI can help."
     assert tidy("Your order shipped. Hi there, again.") == "Your order shipped. Hi there, again."
+
+
+def test_greeting_is_always_there():
+    from relay.checks import greet, greeting_name
+    cafe = [{"tool": "find_customer", "result": {"found": True, "name": "Lantern Coffee House", "type": "wholesale"}}]
+    person = [{"tool": "find_customer", "result": {"found": True, "name": "Ava Tanaka", "type": "retail"}}]
+    assert greeting_name({}, cafe) == "Lantern Coffee House" and greeting_name({}, person) == "Ava"
+    assert greeting_name({"from_name": "Dana (Hilltop Bakery)"}, [{"tool": "find_customer", "result": {"found": False}}]) == "Dana"
+    assert greet("We can change your schedule.", "Lantern Coffee House") == "Hi Lantern Coffee House,\n\nWe can change your schedule."
+    assert greet("Hi Ava,\n\nYour order shipped.", "Ava") == "Hi Ava,\n\nYour order shipped."

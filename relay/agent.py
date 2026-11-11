@@ -22,7 +22,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
-from .checks import sign_off, tidy, check_draft, screen
+from .checks import greet, greeting_name, sign_off, tidy, check_draft, screen
 from .fernwood import TODAY
 from .llm import LLMError
 from .support_data import CATEGORIES, REFUND_LIMIT
@@ -156,6 +156,8 @@ class Agent:
             who = tools.call("find_customer", {})            # always: who is this?
             if s.get("category") == "subscription" and who.get("found"):
                 tools.call("subscription", {})               # always, before saying anything about it
+            if s.get("category") == "wholesale":
+                tools.call("policy", {"topic": "wholesale"})
             messages = [{"role": "system", "content": GATHER},
                         {"role": "user", "content": email_block(s["email"]) + "\n\nAlready looked up:\n" +
                          "\n".join(f"{st['tool']}: {json.dumps(st['result'])}" for st in tools.log)}]
@@ -194,7 +196,7 @@ class Agent:
             draft = {"reply": "", "ticket": {}, "refund_amount": 0, "needs_human": True,
                      "human_reason": f"the AI couldn't write a draft ({e})"}
         if draft.get("reply"):
-            draft["reply"] = sign_off(tidy(draft["reply"]))
+            draft["reply"] = sign_off(tidy(greet(draft["reply"], greeting_name(s["email"], s["steps"]))))
         ticket = draft.get("ticket") or {}
         for k in ("title", "action"):
             if isinstance(ticket.get(k), str):
