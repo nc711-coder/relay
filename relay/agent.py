@@ -61,7 +61,7 @@ When you have what you need, reply with a one-line note saying you're done (no t
 DRAFT = ROLE + f"""
 
 Write the reply and a ticket, using ONLY facts from the lookups and policies below. Reply with a JSON object:
-  "reply":  the email reply. Greet the customer by first name if known. Answer their question in the first two
+  "reply":  the email reply. Greet the customer by first name if known, on its own line. Answer their question in the first two
             sentences. Always name the order you're talking about by its number. Give order numbers as #12345, dates as "October 28", money as $14.85. Include the
             tracking number and carrier when you mention shipping. Offer only what the policy allows. You can't
             change anything yourself: write what we will do ("we'll switch you to..."), never that it's done. If the

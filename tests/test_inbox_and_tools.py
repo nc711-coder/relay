@@ -149,3 +149,6 @@ def test_tidy_money_and_greeting():
     assert tidy("A refund of $75.5 and $1,234.5, not $15.50 or $129.") == "A refund of $75.50 and $1,234.50, not $15.50 or $129."
     assert tidy("Hi Lantern Coffee House,\nWe can switch.") == "Hi Lantern Coffee House,\n\nWe can switch."
     assert tidy("Hi Ava,\n\nAlready spaced.") == "Hi Ava,\n\nAlready spaced."
+    assert tidy("Hi Ava, your order #27989 is in transit.") == "Hi Ava,\n\nYour order #27989 is in transit."
+    assert tidy("Hi, I can help.") == "Hi,\n\nI can help."
+    assert tidy("Your order shipped. Hi there, again.") == "Your order shipped. Hi there, again."

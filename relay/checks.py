@@ -86,7 +86,12 @@ def quote_in_policy(quote: str) -> bool:
 def tidy(text: str) -> str:
     """Money with two decimals ($75.5 -> $75.50, $16.0 -> $16.00) and a blank line after the greeting."""
     text = re.sub(r"\$(\d[\d,]*)\.(\d)(?!\d)", r"$\1.\g<2>0", text)
-    return re.sub(r"\A((?:hi|hello|dear)\b[^\n]{0,60},)[ \t]*\n(?!\n)", r"\1\n\n", text, flags=re.I)
+    # "Hi Ava, your order..." or "Hi Ava,\nYour order...": the greeting always gets a line of its own
+    m = re.match(r"[ \t]*((?:hi|hello|dear)\b[^\n,]{0,60},)[ \t]*\n?[ \t]*(?=\S)", text, re.I)
+    if not m:
+        return text
+    rest = text[m.end():]
+    return f"{m.group(1)}\n\n{rest[:1].upper()}{rest[1:]}"
 
 
 def sign_off(reply: str) -> str:
